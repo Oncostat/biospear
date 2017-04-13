@@ -1,0 +1,39 @@
+import(devtools, grplasso, MASS, Matrix, mboost, parallel, plsRcox, pROC, survival)
+
+importFrom(cobs,
+           cobs)
+
+importFrom(corpcor,
+           fast.svd)
+
+importFrom(glmnet, 
+           glmnet, cv.glmnet)
+
+importFrom(PRROC,
+           pr.curve)
+
+importFrom(RCurl,
+           merge.list)
+
+importFrom(survAUC,
+	   predErr, UnoC)
+
+export(BMsel,
+       expSurv,
+       predRes,
+       selRes,
+       simdata,
+       simdataV)
+
+S3method(print, resBMsel)
+S3method(summary, resBMsel)
+
+S3method(print, resexpSurv)
+S3method(predict, resexpSurv)
+S3method(plot, resexpSurv)
+
+S3method(print, predRes)
+S3method(plot, predRes)
+
+
+
