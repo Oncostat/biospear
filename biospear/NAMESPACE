@@ -1,5 +1,14 @@
-import(devtools, grplasso, MASS, Matrix, mboost, parallel, plsRcox, pROC, survival)
+import(devtools, grplasso, MASS, Matrix, mboost, parallel, 
+       plsRcox, pROC, survival)
 
+importFrom("graphics", "close.screen", "frame", "legend", "lines",
+           "par", "plot", "screen", "split.screen")
+importFrom("stats", "aggregate", "anova", "as.formula", "coef",
+           "model.weights", "na.exclude", "na.omit", "p.adjust",
+           "predict", "quantile", "rbinom", "rnorm", "runif",
+           "rweibull")
+importFrom("utils", "flush.console")
+  
 importFrom(cobs,
            cobs)
 
