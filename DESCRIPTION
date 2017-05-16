@@ -1,6 +1,6 @@
 Package: biospear
 Type: Package
-Title: Biomarker selection in penalized regression models
+Title: Biomarker Selection in Penalized Regression Models
 Version: 1.0.0
 Author: Nils Ternes [aut, cre],
   Federico Rotolo [aut], Stefan Michiels [ctr]
