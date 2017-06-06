@@ -1,3 +1,5 @@
+[![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/biospear)](https://cran.r-project.org/package=biospear)
+
 # biospear
 Biomarker selection in penalized regression models
 
