@@ -1,11 +1,20 @@
 ################################################################################
+################################################################################
+################################################################################
 ### Selection accuracy of the methods                                          #
 ### WARNING : Only available for simulation datasets (known gold-standard)     #
 ################################################################################
 
-selRes <- function(res){
+selRes <- function(
+  ####################################################################
+  ######################## *** PARAMETERS *** ########################
+  res              # Object of class 'resBMsel'
+  ######################## *** PARAMETERS *** ########################  
+){
 
-  ## Checking
+  ####################################################################
+  ### CHECKING AND MANIPULATION
+  
   if(attributes(res)$isSim == FALSE)
     stop("\nOnly available for the results of a simulated data set.")
 
@@ -18,58 +27,59 @@ selRes <- function(res){
     Step <- Step[-(1:(nrow(Step)/2)), ]
   Step <- Step[, colnames(Res)]
 
-  ################################################################
-  ### Computation of the selection criteria
   nmeth <- ncol(Res) - 1
   allbiom <- attributes(res)$inames[which(attributes(res)$tnames == ifelse(attributes(res)$inter == FALSE, "x", "xt"))]
 
-  ## False Discovery Rate
+  ####################################################################
+  ### COMPUTATION OF SELECTION CRITERIA
+  
+  ## FALSE DISCOVERY RATE
   FDR <- unlist(lapply(
     X = 1:nmeth,
     function(X) length(setdiff(rownames(Res)[which(Res[, X] != 0)], rownames(Res)[which(Res[, 'oracle'] != 0)])) / length(which(Res[, X] != 0))
   ))
   FDR <- ifelse(is.na(FDR), 0, FDR)
 
-  ## False Non-Discovery Rate
+  ## FALSE NON-DISCOVERY RATE
   FNDR <- unlist(lapply(
     X = 1:nmeth,
     function(X) 1 - (length(setdiff(setdiff(allbiom, rownames(Res)[which(Res[, X] != 0)]), rownames(Res)[which(Res[, 'oracle'] != 0)])) / (length(allbiom) - length(which(Res[, X] != 0))))
   ))
   FNDR <- ifelse(is.na(FNDR), 0, FNDR)
 
-  ## False Negative Rate
+  ## FALSE NEGATIVE RATE
   FNR <- rep(NA, nmeth)
   if(sum(Res[, "oracle"]) != 0){
     FNR <- unlist(lapply(
       X = 1:nmeth,
-      FUN = function(X) 1 - (length(intersect(rownames(Res)[which(Res[, 'oracle'] != 0)], rownames(Res)[which(Res[, X] != 0)])) / sum(Res[,"oracle"] != 0))
+      function(X) 1 - (length(intersect(rownames(Res)[which(Res[, 'oracle'] != 0)], rownames(Res)[which(Res[, X] != 0)])) / sum(Res[,"oracle"] != 0))
     ))
   }
 
-  ## False Positive Rate
+  ## FALSE POSITIVE RATE
   FPR <- rep(NA, nmeth)
   if(sum(Res[, "oracle"]) != nrow(Res)){
     FPR <- unlist(lapply(
       X = 1:nmeth,
-      FUN = function(X) 1 - (length(setdiff(setdiff(allbiom, rownames(Res)[which(Res[, 'oracle'] != 0)]), rownames(Res)[which(Res[, X] != 0)])) / (length(allbiom) - sum(Res[,"oracle"] != 0)))
+      function(X) 1 - (length(setdiff(setdiff(allbiom, rownames(Res)[which(Res[, 'oracle'] != 0)]), rownames(Res)[which(Res[, X] != 0)])) / (length(allbiom) - sum(Res[,"oracle"] != 0)))
     ))
   }
 
-  ## Area Under the ROC Curve
+  ## AREA UNDER THE ROC CURVE
   AUC <- rep(NA, nmeth)
   if(sum(Step[, "oracle"]) != 0){
     AUC <- unlist(lapply(
       X = 1:nmeth,
-      FUN = function(X) auc(roc(response = Step[, 'oracle'], predictor = Step[, X]))
+      function(X) auc(roc(response = Step[, 'oracle'], predictor = Step[, X]))
     ))
   }
 
-  ## Area Under the precision-recall Curve (Davis and Goadrich, 2006)
+  ## AREA UNDER THE PRECISION-RECALL CURVE (Davis and Goadrich, 2006)
   AUPRC <- rep(NA, nmeth)
   if(sum(Step[, "oracle"]) != 0){
     AUPRC <- unlist(lapply(
       X = 1:nmeth,
-      FUN = function(X) pr.curve(scores.class0 = Step[, X], weights.class0 = Step[, 'oracle'])$auc.integral
+      function(X) pr.curve(scores.class0 = Step[, X], weights.class0 = Step[, 'oracle'])$auc.integral
     ))
   }
 

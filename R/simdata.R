@@ -126,7 +126,7 @@ simdata <- function(n, p, q.main, q.inter, prob.tt, m0, alpha.tt, beta.main, bet
     stop("\nThe shape parameter 'wei.shape' must be positive.")
 
   ## Follow-up and recruitment period
-  if(fu <= 0 || recr <= 0)
+  if(fu < 0 || recr < 0)
     stop("\nThe follow-up 'fu' and the recruitment period 'recr' must be positive.")
 
   ## Multiplicative factor for time

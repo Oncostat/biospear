@@ -13,8 +13,8 @@ expSurv <- function(
   ci.level = .95,   # Level for a two-sided confidence interval
   boot = FALSE,     # Computation of confidence intervals via bootstrap? (logical: TRUE/FALSE)
   nboot,            # Number of bootstrap samples
-  smooth,           # Computation of smoothed B-splines? (logical: TRUE/FALSE)
-  pct.group,        # Number or percentile of the prognostic category (interaction setting only)
+  smooth = TRUE,    # Computation of smoothed B-splines? (logical: TRUE/FALSE)
+  pct.group = 4,    # Number or percentile of the prognostic category (interaction setting only)
   horizon,          # Time-horizon to estimate the expected survival probabilities
   trace = TRUE,     # Print messages ?
   ncores = 1        # Number of PC cores used (useful for the bootstrap CI only)
@@ -49,16 +49,12 @@ expSurv <- function(
     nboot <- ceiling(nboot)
   }
 
-  if(!is.logical(smooth) || length(boot) > 1)
+  if(!is.logical(smooth) || length(smooth) > 1)
     stop("\n'smooth' must be TRUE or FALSE.")
 
   if(attributes(res)$inter == FALSE){
-    if(!missing(pct.group))
-      warning("\nThe 'pct.group' parameter is not considered for the prognostic setting.")
     pct.group <- 1
   }else{
-    if(missing(pct.group))
-      stop("\n'pct.group' must be specified for the interaction setting.")
     if(!is.numeric(pct.group))
       stop("\n'pct.group' must be numerical.")
     if(length(pct.group) == 1){
@@ -105,9 +101,13 @@ expSurv <- function(
   colnames(m.sel) <- gsub("[.]", "-", colnames(m.sel))
   m.sel <- m.sel[, method, drop = FALSE]
 
+  if(attributes(res)$inter == TRUE){
+    m.sel <- m.sel[-1, , drop = FALSE]
+  }
+  
   m.score <- matrix(0, nrow = nrow(traindata), ncol = ncol(m.sel))
   if(nrow(m.sel) > 0 & sum(m.sel) != 0){
-    m.score <- as.matrix(traindata[, rownames(m.sel), drop = TRUE]) %*% as.matrix(m.sel)
+    m.score <- as.matrix(traindata[, rownames(m.sel), drop = FALSE]) %*% as.matrix(m.sel)
   }
   m.score[is.na(m.score)] <- 0
 
@@ -179,6 +179,7 @@ expSurv <- function(
     colnames(m.score) <- colnames(m.sel)
     m.score[is.na(m.score)] <- 0
   }
+  
   #####################################################################
   ### COMPUTATION OF THE EXPECTED SURVIVAL
   ### + ANALYTICAL CI, if 'boot' = FALSE
@@ -191,7 +192,6 @@ expSurv <- function(
     message("\rComputation of the expected survival")
     if(boot == FALSE)
       message("\rComputation of analytical confidence intervals")
-    flush.console()
   }
 
   fct <- as.formula(paste0("Surv(", paste(
@@ -415,7 +415,7 @@ predict.resexpSurv <- function(object, newdata, ...){
 
   m.score <- matrix(0, nrow = nrow(newdata), ncol = ncol(a$m.sel))
   if(nrow(a$m.sel) > 0){
-    m.score <- as.matrix(newdata[, rownames(a$m.sel), drop = TRUE]) %*% as.matrix(a$m.sel)
+    m.score <- as.matrix(newdata[, rownames(a$m.sel), drop = FALSE]) %*% as.matrix(a$m.sel)
   }
   m.score[is.na(m.score)] <- 0
   if(a$inter == TRUE){
@@ -547,19 +547,19 @@ predict.resexpSurv <- function(object, newdata, ...){
 } # end of predict
 ###########################################################
 
-plot.resexpSurv <- function(x, method, pr.group, print.ci, xlim, ylim, xlab, ylab, ...){
+plot.resexpSurv <- function(x, method, pr.group, print.ci = TRUE, xlim, ylim, xlab, ylab, ...){
 
   a <- attributes(x)
 
   if(missing(method)){
-    stop("\n 'method' must be specified.")
+    stop("\n'method' must be specified.")
   }else{
     if(length(method) > 1){
-      warning("\n Only the first element in 'method' is considered.")
+      warning("\nOnly the first element in 'method' is considered.")
       method <- method[1]
     }
     if(!(method %in% colnames(x$surv)))
-      stop("\n 'method' is unknown.")
+      stop("\n'method' is unknown.")
   }
 
   if(a$inter == TRUE){
@@ -578,18 +578,12 @@ plot.resexpSurv <- function(x, method, pr.group, print.ci, xlim, ylim, xlab, yla
     wgr <- which(a$catm.score[, method] %in% pr.group)
   }else{
     if(!missing(pr.group))
-      warning("\n 'pr.group' is not considered in the prognostic setting.")
+      warning("\n'pr.group' is not considered in the prognostic setting.")
     wgr <- 1:nrow(x$surv)
   }
 
-
-  if(missing(print.ci)){
-    print.ci <- TRUE
-  }else{
-    if(length(print.ci) > 1 || !is.logical(print.ci))
-      stop("\n 'print.ci' must be logical.")
-  }
-
+  if(length(print.ci) > 1 || !is.logical(print.ci))
+    stop("\n'print.ci' must be logical.")
 
   if(a$inter == TRUE)
     xx <- a$i.score[, method][wgr]
@@ -608,7 +602,12 @@ plot.resexpSurv <- function(x, method, pr.group, print.ci, xlim, ylim, xlab, yla
  if(a$smooth == TRUE){
    wc <- which(col == 1)[order(xx[which(col == 1)])]
    wt <- which(col == 2)[order(xx[which(col == 2)])]
-   plot(NULL, xlim = xlim, ylim = ylim, xlab = xlab, ylab = ylab, ...)
+   par(mar = c(5, 5, 1, 1))
+   plot(NULL, xlim = xlim, ylim = ylim, xlab = "", ylab = "", yaxt = "n", xaxt = "n", ...)
+   mtext(text = xlab, side = 1, line = 3, cex = 1.3)
+   mtext(text = ylab, side = 2, line = 3.5, cex = 1.3)
+   axis(1, cex.axis = 1.3)
+   axis(2, cex.axis = 1.3, las = 2)
    lines(x = xx[wc], y = x$surv[wgr, method][wc], lwd = 2, col = 1)
    lines(x = xx[wt], y = x$surv[wgr, method][wt], lwd = 2, col = 2)
    if(!is.null(a$surv)){
@@ -681,16 +680,9 @@ int.expSurv <- function(res, all.sel, fit, datafit, dataest, boot, ci.level, hrz
       if(sum(selected) > 0){
 
         if(out.fit){
-
-          # if(sum(selected) == 1){
-            fct <- as.formula(paste0("Surv(", paste(
-              attributes(res)$inames[attributes(res)$tnames == "y"], collapse = ", "),
-              ") ~ ", paste0(rownames(all.sel)[selected], collapse = "+")))
-          # }else{
-          #   fct <- as.formula(paste0("Surv(", paste(
-          #     attributes(res)$inames[attributes(res)$tnames == "y"], collapse = ", "),
-          #     ") ~ as.matrix(datafit[, rownames(all.sel)[selected], drop = FALSE])"))
-          # }
+          fct <- as.formula(paste0("Surv(", paste(
+            attributes(res)$inames[attributes(res)$tnames == "y"], collapse = ", "),
+            ") ~ as.matrix(datafit[, rownames(all.sel)[selected], drop = FALSE])"))
 
           fit <- coxph(fct, init = all.sel[selected, X], iter = 0, data = datafit)
         }

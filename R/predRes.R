@@ -4,13 +4,26 @@
 ### Prediction accuracy of the methods                                         #
 ################################################################################
 
-predRes <- function(res, method, traindata, newdata, is.2cv, fold.2cv = 5, horizon, trace = TRUE, ncores = 1){
+predRes <- function(
+  ####################################################################
+  ######################## *** PARAMETERS *** ########################
+  res,             # Object of class 'resBMsel'
+  method,          # Methods to compute
+  traindata,       # Training dataset
+  newdata,         # New dataset
+  is.2cv,          # Double CV should be performed?
+  fold.2cv = 5,    # Number of folds for the double CV
+  horizon,         # Time-horizon
+  trace = TRUE,    # Print function's progression?
+  ncores = 1       # Number of PC cores used
+  ####################################################################
+  ){
 
-  ##########################################################
-  ### Data checking and manipulation
+  ####################################################################
+  ### DATA CHECKING AND MANIPULATION
 
   if(class(res) != "resBMsel")
-    stop("\nThe 'res' object must be an object returned by the function BMsel().")
+    stop("\n'res' must be an object returned by the function BMsel().")
 
   if(missing(method)){
     method <- colnames(summary(res, show = FALSE, add.ridge = !is.na(attributes(res)$ridge)))
@@ -32,17 +45,17 @@ predRes <- function(res, method, traindata, newdata, is.2cv, fold.2cv = 5, horiz
     is.2cv <- FALSE
 
   if(!(is.2cv) %in% c(TRUE, FALSE))
-    stop("\nThe 'is.2cv' parameter must be either TRUE or FALSE.")
+    stop("\n'is.2cv' must be either TRUE or FALSE.")
 
   if(fold.2cv < 2 || fold.2cv > nrow(traindata))
-    stop("\nThe 'fold.2cv' parameter must be between 2 and the sample size 'n'.")
+    stop("\n'fold.2cv' must be between 2 and the sample size 'n'.")
 
   if(missing(horizon)){
-    stop("\nThe 'horizon' parameter must be specified for Cox models.")
+    stop("\n'horizon' must be specified for Cox models.")
   }else{
     if(min(horizon) < 0 || max(horizon) > min(c(max(traindata[, attributes(res)$inames[which(attributes(res)$tnames == 'y')[1]]]),
                                         if(!missing(newdata)) max(newdata[, attributes(res)$inames[which(attributes(res)$tnames == 'y')[1]]]))))
-      stop("\n The 'horizon' parameter is out of the range of the observed survival time.")
+      stop("\n'horizon' is out of the range of the observed survival time.")
   }
   horizon <- sort(horizon)
 
@@ -57,9 +70,6 @@ predRes <- function(res, method, traindata, newdata, is.2cv, fold.2cv = 5, horiz
   if(ncores < 1 || ncores > detectCores())
     stop(paste0("\n'ncores' must be between 1 and ", detectCores(), "."))
   if(ncores > fold.2cv) ncores <- fold.2cv
-
-  ##########################################################
-  ### Data management
 
   tt <- attributes(res)$inames[which(attributes(res)$tnames == 'tt')]
   x <- attributes(res)$inames[which(attributes(res)$tnames == 'x')]
@@ -78,8 +88,9 @@ predRes <- function(res, method, traindata, newdata, is.2cv, fold.2cv = 5, horiz
 
   nmeth <- ncol(Res)
 
-  ##########################################################
-  ### Training set
+  ####################################################################
+  ### PREDICTION FOR TRAINING SET
+  
   if(trace == TRUE)
     message(paste0(
       "\rComputing prediction criteria for: training set"))
@@ -102,15 +113,18 @@ predRes <- function(res, method, traindata, newdata, is.2cv, fold.2cv = 5, horiz
   if(attributes(res)$inter == TRUE){
     lpint.train <- matrix(0, nrow = nrow(tdata), ncol = ncol(Res))
     if(nrow(Res.i) > 0 & sum(Res.i) != 0)
-      lpint.train <- as.matrix(tdata[, gsub(".INT", "", gsub("bi", "bm", rownames(Res.i)))]) %*% as.matrix(Res.i)
+      lpint.train <- as.matrix(
+        tdata[, gsub(paste0(":", attributes(res)$inames[1]), "", rownames(Res.i))]) %*% as.matrix(Res.i)
   }
 
   predRes.train <- compute.predRes(res = res, nmeth = nmeth, hrz = horizon, traindata = traindata, newdata = traindata,
                                    surv.train = surv.train, surv.new = surv.train, lp.train = lp.train, lp.new = lp.train,
                                    lpint.train = lpint.train, lpint.new = lpint.train, tt = tt)
 
-  ##########################################################
-  ### External validation
+  
+  ####################################################################
+  ### PREDICTION FOR VALIDATION SET
+  
   if(!missing(newdata)){
     if(trace == TRUE)
       message(paste0(
@@ -131,7 +145,8 @@ predRes <- function(res, method, traindata, newdata, is.2cv, fold.2cv = 5, horiz
     if(attributes(res)$inter == TRUE){
       lpint.new <- matrix(0, nrow = nrow(newdata), ncol = ncol(Res))
       if(nrow(Res.i) > 0 & sum(Res.i) != 0)
-        lpint.new <- as.matrix(newdata[, gsub(".INT", "", gsub("bi", "bm", rownames(Res.i)))]) %*% as.matrix(Res.i)
+        lpint.new <- as.matrix(
+          newdata[, gsub(paste0(":", attributes(res)$inames[1]), "", rownames(Res.i))]) %*% as.matrix(Res.i)
     }
 
     predRes.new <- compute.predRes(res = res, nmeth = nmeth, hrz = horizon, traindata = traindata, newdata = newdata,
@@ -139,8 +154,10 @@ predRes <- function(res, method, traindata, newdata, is.2cv, fold.2cv = 5, horiz
                                    lpint.train = lpint.train, lpint.new = lpint.new, tt = tt)
   }
 
-  ##########################################################
-  ### Internal evaluation through double cross-validation (2cv)
+  
+  ####################################################################
+  ### PREDICTION FOR INTERNAL DOUBLE CROSS-VALIDATION (2CV)
+  
   if(is.2cv == TRUE){
     form <- attributes(res)$formula
     foldid2 <- sample(x = 1:fold.2cv, size = nrow(traindata), replace = T)
@@ -197,7 +214,8 @@ predRes <- function(res, method, traindata, newdata, is.2cv, fold.2cv = 5, horiz
         if(attributes(res)$inter == TRUE){
           lpint.trainV <- matrix(0, nrow = nrow(traindataV), ncol = ncol(Res))
           if(nrow(Res.i) > 0 & sum(Res.i) != 0)
-            lpint.trainV <- as.matrix(traindataV[, gsub(".INT", "", gsub("bi", "bm", rownames(Res.i)))]) %*% as.matrix(Res.i)
+            lpint.trainV <- as.matrix(
+              traindataV[, gsub(paste0(":", attributes(res)$inames[1]), "", rownames(Res.i))]) %*% as.matrix(Res.i)
         }
 
         rownames(lp.trainV) <- rownames(traindataV)
@@ -232,7 +250,10 @@ predRes <- function(res, method, traindata, newdata, is.2cv, fold.2cv = 5, horiz
 
   }
 
-  ##########################################################
+  
+  ####################################################################
+  ### FORMATTING RESULTS
+  
   predRes <- list()
   for(i in 1:length(horizon)){
     predres <- list('Training set' = round(predRes.train[[i]], 4))
@@ -244,6 +265,8 @@ predRes <- function(res, method, traindata, newdata, is.2cv, fold.2cv = 5, horiz
   class(predRes) <- "predRes"
   return(predRes)
 }
+################################################################################
+################################################################################
 
 compute.predRes <- function(res, nmeth, hrz, traindata, newdata, surv.train, surv.new,
                  lp.train, lp.new, lpint.train, lpint.new, tt){
@@ -299,8 +322,8 @@ compute.predRes <- function(res, nmeth, hrz, traindata, newdata, surv.train, sur
     })
   names(pRes) <- hrz
   return(pRes)
-}
-###########################################################
+} # end of compute.predRes
+################################################################################
 
 print.predRes <- function(x, ...) {
 
@@ -309,9 +332,8 @@ print.predRes <- function(x, ...) {
   names(x) <- n
   print(x, ...)
 
-}
-
-###########################################################
+} # end of print
+################################################################################
 
 plot.predRes <- function(x, method, crit = c("C", "PE", "dC"), xlim, ylim, xlab, ylab, col, ...){
 
@@ -355,12 +377,15 @@ plot.predRes <- function(x, method, crit = c("C", "PE", "dC"), xlim, ylim, xlab,
     xlim <- range(hrz)
 
   if(missing(ylim)){
-    if(crit == "C-index"){
-      ylim <- c(0.5, 1)
-    }else{
-      ylim <- c(0, 0.5)
-    }
+    ylim <- switch(
+      crit, 
+      "C-index" = c(0.5, 1), 
+      "Prediction Error" = c(0, 0.5),
+      "Delta C-index" = c(0, 1)
+    )
   }
+  
+
 
   split.screen(rbind(c(0, 0.33, 0.85, 1),
                      c(0.33, 1, 0.85, 1),
@@ -370,22 +395,27 @@ plot.predRes <- function(x, method, crit = c("C", "PE", "dC"), xlim, ylim, xlab,
   screen(1)
   par(mar = rep(0, 4))
   frame()
-  legend(0, .5, xjust = 0, yjust = .5, legend = names(x[[1]]), pch = NA, lty = unique(xx[, 1]), ncol = 1, box.col = "white", pt.cex = 1.2, cex = 1.2)
+  legend(0, .5, xjust = 0, yjust = .5, legend = names(x[[1]]), pch = NA, lty = unique(xx[, 1]), ncol = 1, box.col = "white", pt.cex = 1.2, cex = 1.3)
 
   screen(2)
   par(mar = rep(0, 4))
   frame()
-  legend(0, .5, xjust = 0, yjust = .5, legend = method, pch = rep(22, 5), lty = rep(0, length(method)), ncol = 5, col = unique(xx[, 2]), pt.bg = unique(xx[, 2]), box.col = "white", pt.cex = 1.2, cex = 1.2)
+  legend(0, .5, xjust = 0, yjust = .5, legend = method, pch = rep(22, 5), lty = rep(0, length(method)), ncol = 5, col = unique(xx[, 2]), pt.bg = unique(xx[, 2]), box.col = "white", pt.cex = 1.2, cex = 1.3)
 
   screen(3)
   par(mar = c(5, 5, 0, 3))
-  plot(NULL, xlim = xlim, ylim = ylim, xlab = "Time", ylab = crit, ...)
+  plot(NULL, xlim = xlim, ylim = ylim, xlab = "", ylab = "", xaxt = "n", yaxt = "n", ...)
+  axis(1, cex.axis = 1.5)
+  axis(2, las = 2, cex.axis = 1.5)
+  if(missing(xlab)) xlab = "Time"
+  mtext(text = xlab, side = 1, line = 3, cex = 1.5)
+  mtext(text = crit, side = 2, line = 3.5, cex = 1.5)
   zz <- lapply(
     X = 1:nrow(xx),
     FUN = function(X){
-      lines(x = hrz, y = xx[X, -(1:2)], lty = xx[X, 1], col = xx[X, 2], ...)
+      lines(x = hrz, y = xx[X, -(1:2)], lty = xx[X, 1], col = xx[X, 2], lwd = 2, ...)
     })
   close.screen(all.screens = TRUE)
 
 } # end of plot
-###########################################################
+################################################################################

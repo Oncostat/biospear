@@ -14,11 +14,11 @@ BMsel <- function(
   tt,               # Colname or position of the treatment
   ### Parametrization
   inter,            # Logical value indicating if interactions should be computed
-  std.x,            # Standardization of biomarkers ? (TRUE or FALSE)
-  std.i,            # Standardization of interactions ? (TRUE or FALSE)
-  std.tt,           # Treatment coding as +/- 0.5 ? (TRUE or FALSE)
-  ### Variable selection strategy
-  # (*) only available for the predictive model
+  std.x = TRUE,     # Standardization of biomarkers ? (TRUE or FALSE)
+  std.i = FALSE,    # Standardization of interactions ? (TRUE or FALSE)
+  std.tt = TRUE,    # Treatment coding as +/- 0.5 ? (TRUE or FALSE)
+  ### Variable selection approaches
+  # (*) only available for the interaction setting
   method = c(
     'alassoL',      # Adaptive lasso penalty (pre-step weighting via Lasso)
     'alassoR',      # Adaptive lasso penalty (pre-step weighting via Ridge)
@@ -75,17 +75,17 @@ BMsel <- function(
   Sel <- method
   int <- intersect(method, c("ridge-lasso", "PCAlasso", "PLSlasso", "glasso", "modCov"))
   if(inter == FALSE && length(int) > 0)
-    stop(paste0("\n", paste0(paste0("'",int, "'"), collapse = ", "), " only available for predictive setting (par = 'pred')"))
+    stop(paste0("\n", paste0(paste0("'",int, "'"), collapse = ", "), ": only available for 'inter' = TRUE."))
 
   ## Control of the data set
   if(missing(data))
-    stop("\n The 'data' object is missing.")
+    stop("\n 'data' is missing.")
 
   if(is.null(attributes(data)$isSim)){
 
     # Control of 'x'
     if(missing(x))
-      stop("\nThe 'x' object is missing.")
+      stop("\n'x' is missing.")
     colCheck(obj = x, data = data)
     if(is.numeric(x))
       x <- colnames(data)[x]
@@ -93,7 +93,7 @@ BMsel <- function(
 
     # Control of 'y'
     if(missing(y))
-      stop("\nThe 'y' object is missing.")
+      stop("\n'y' is missing.")
     colCheck(obj = y, data = data)
     if(is.numeric(y))
       y <- colnames(data)[y]
@@ -112,7 +112,7 @@ BMsel <- function(
     # Control of 'tt', if exists
     if(inter == TRUE){
       if(missing(tt))
-        stop("\nFor a interaction setting ('inter' = TRUE), the treatment object ('tt') must be specified.")
+        stop("\n'tt' must be specified when 'inter' = TRUE.")
       colCheck(obj = tt, data = data)
       if(is.numeric(tt))
         tt <- colnames(data)[tt]
@@ -154,10 +154,6 @@ BMsel <- function(
     }
     if(is.numeric(tt))
       tt <- colnames(data)[tt]
-    # if(inter == FALSE){
-    #   z <- c(tt, z)
-    #   tt <- NULL
-    # }
   }
 
   ## True active biomarkers
@@ -168,71 +164,25 @@ BMsel <- function(
   trueBI <- attributes(data)$biomarkers$active.int
 
   ## Control of the "std.x" parameter
-  if(!is.null(attributes(data)$isSim)){
-    if(!missing(std.x))
-      warning("\nThe 'std.x' parameter will be not taking into account.
-              Standardization is already done for generating simulated datasets.")
-    std.x <- TRUE
-  }else{
-    if(missing(std.x)){
-      warning("\nThe 'std.x' is missing and is fixed as 'TRUE'.")
-      std.x <- TRUE
-    }else{
-      if(!((std.x) %in% c(TRUE, FALSE)))
-        stop("\n The 'std.x' parameter must be either TRUE or FALSE.")
-    }
-  }
+  if(!is.logical(std.x) || length(std.x) > 1)
+    stop("\n'std.x' must be TRUE or FALSE.")
 
   ## Control of the "std.i" parameter
-  if(!missing(std.i)){
-    if(!((std.i) %in% c(TRUE, FALSE)))
-      stop("\nThe 'std.i' parameter must be either TRUE or FALSE.")
-  }
-  if(!is.null(attributes(data)$isSim)){
-    if(missing(std.i))
-      std.i <- FALSE
-  }else{
-    if(inter == TRUE){
-      if(missing(std.i)){
-        warning("\nThe 'std.i' is missing and is fixed as 'FALSE'.")
-        std.i <- FALSE
-      }
-    }else{
-      if(!missing(std.i))
-        warning("\nThe 'std.i' object is not used for the prognostic setting.")
-      std.i <- NULL
-    }
-  }
+  if(!is.logical(std.i) || length(std.i) > 1)
+    stop("\n'std.i' must be either TRUE or FALSE.")
+  if(inter == FALSE)
+    std.i <- NULL
 
   ## Control of the "std.tt" parameter
-  if(!is.null(attributes(data)$isSim)){
-    if(!missing(std.tt))
-      warning("\nThe 'std.tt' parameter will be not taking into account.
-              Treatment coding is already +/- 0.5 in simulated datasets.")
-    std.tt <- TRUE
-  }else{
-    if(is.null(tt)){
-      if(!missing(std.tt))
-        warning("\n'std.tt' is not used as 'tt' is missing.")
-    }else{
-      if(!missing(std.tt)){
-        if(!((std.tt) %in% c(TRUE, FALSE)))
-          stop("\nThe 'std.tt' parameter must be either TRUE or FALSE.")
-      }else{
-        if(sum(unique(as.vector(t(data[, tt]))) %in% c(-0.5, +0.5)) != 2){
-          warning("\nThe treatment has been recoded as -0.5 and +0.5. To keep the initial coding, please specify std.tt = FALSE")
-        }
-        std.tt <- TRUE
-      }
-    }
-  }
+  if(!is.logical(std.tt) || length(std.tt) > 1)
+    stop("\n'std.tt' must be either TRUE or FALSE.")
 
   ## Control of the 'folds' object
   if(!is.numeric(folds)){
-    stop("\nThe 'folds' object must be integer")
+    stop("\n'folds' must be integer.")
   }else{
     if(sum(folds %% 1) > 0)
-      stop("\nThe 'folds' object must be integer")
+      stop("\n'folds' must be integer.")
   }
   if(length(folds) == 1){
     if(folds < 3 || folds > nrow(data))
@@ -240,7 +190,7 @@ BMsel <- function(
     folds <- sample(x = 1:folds, size = nrow(data), replace = TRUE)
   }else{
     if(length(folds) != nrow(data))
-      stop("\nThe argument 'folds' must be a unique value or a vector of the size equal to the number of observations (n).")
+      stop("\n'folds' must be a unique value or a vector of the size equal to the number of observations (n).")
     folds <- as.numeric(factor(folds))
   }
 
@@ -250,52 +200,52 @@ BMsel <- function(
     X = 1:length(list),
     FUN = function(X){
       if(length(list[[X]]) != 1)
-        stop(paste0("\nThe argument '", names(list)[X],"' must be a unique value."))
+        stop(paste0("\n", names(list)[X],"' must be a unique value."))
       })
 
   if(uni.fdr < 0 || uni.fdr > 1)
-    stop("\nThe threshold FDR 'uni.fdr' must be between 0 and 1.")
+    stop("\n'uni.fdr' must be between 0 and 1.")
 
   if(dfmax < 0)
-    stop("\nThe maximum number of selected covariates 'dfmax' must be positive.")
+    stop("\n'dfmax' must be positive.")
 
   if(pct.rep < 0)
-    stop("\nThe number of replications for the percentile lasso 'pct.rep' must be positive.")
+    stop("\n'pct.rep' must be positive.")
 
   if(pct.qtl < 0 || pct.qtl > 1)
-    stop("\nThe retained percentile of the lambdas 'pct.qtl' must be between 0 and 1.")
+    stop("\n'pct.qtl' must be between 0 and 1.")
 
   if(uni.test %in% c(1, 2)){
     if(uni.test == 2 && inter == FALSE)
-      stop("\nThe argument 'uni.test' cannot be 2 for the prognostic setting (only 1)")
+      stop("\n'uni.test' cannot be 2 for the prognostic setting (only 1).")
   }else{
-    stop("\nThe argument 'uni.test' must be 1 or 2 (2 only available for predictive setting).")
+    stop("\n'uni.test' must be 1 or 2 (2 only available for interaction setting).")
   }
 
-  if(!((ss.rando) %in% c("TRUE", "FALSE")))
-    stop("\nThe 'ss.rando' parameter must be either TRUE or FALSE.")
+  if(!is.logical(ss.rando) || length(ss.rando) > 1)
+    stop("\n'ss.rando' must be either TRUE or FALSE.")
 
   ss.nsub <- ceiling(ss.nsub)
   if(!(ss.nsub > 10))
     stop("\nThe number of subsamples 'ss.nsub' must be greater than 10.")
 
   if(ss.fsub < 0 || ss.fsub > 1)
-    stop("\nThe fraction of subsamples 'ss.fsub' must be between 0 and 1.")
+    stop("\n'ss.fsub' must be between 0 and 1.")
 
   if(ss.fwer <= 0)
-    stop("\nThe parameter to control the FWER 'ss.fwer' must be positive.")
+    stop("\n'ss.fwer' must be positive.")
 
-  if(ss.thr < 0 || ss.thr > 1)
-    stop("\nThe threshold 'ss.thr' must be between 0.5 and 1.")
+  if(ss.thr < 0.5 || ss.thr > 1)
+    stop("\n'ss.thr' must be between 0.5 and 1.")
 
-  if(!((showWarn) %in% c(TRUE, FALSE)))
-    stop("\nThe 'showWarn' parameter must be either TRUE or FALSE.")
+  if(!is.logical(showWarn) || length(showWarn) > 1)
+    stop("\n'showWarn' must be either TRUE or FALSE.")
   w <- options()$warn
   if(showWarn == FALSE)
     options(warn = -1)
 
-  if(!((trace) %in% c(TRUE, FALSE)))
-    stop("\nThe 'trace' parameter must be either TRUE or FALSE.")
+  if(!is.logical(trace) || length(trace) > 1)
+    stop("\n'trace' must be either TRUE or FALSE.")
 
   pos.penExt <- which(method %in% paste0('lasso-', c('1se', 'AIC', 'BIC', 'HQIC', 'pct', 'pcvl', 'RIC')))
 
@@ -378,19 +328,20 @@ BMsel <- function(
   }
 
   ### Computation selection for all methods excepted adaptive lasso and lasso extensions
-  pos.sel2 <- which(method %in% c("alassoU", "alassoR", "alassoL", "penExt"))
-  if(length(pos.sel2) > 0){
-    method2 <- method[pos.sel2]
-    method <- method[-pos.sel2]
+  pos.othsel <- which(method %in% c("alassoU", "alassoR", "alassoL", "penExt"))
+  if(length(pos.othsel) > 0){
+    oth.method <- method[pos.othsel]
+    method <- method[-pos.othsel]
   }
 
-  res <- res.penExt <- res.als <- list()
+  res <- list()
 
   Res <- lapply(method, function(M, o){
-    if(trace == TRUE)
+    if(trace == TRUE){
       message(paste0(
         "\rComputing selection with method: ", M), appendLF = TRUE)
-    flush.console()
+    }
+
     Mres <- eval(parse(text = M))(data = data, o = o)
     return(list(Mres))
   }, o = o)
@@ -411,40 +362,42 @@ BMsel <- function(
   }
 
   ### Computation selection for adaptive lasso and lasso extensions
-  if(exists("method2")){
+  if(exists("oth.method")){
 
-    if("penExt" %in% method2){
-      if(trace == TRUE)
+    if("penExt" %in% oth.method){
+      if(trace == TRUE){
         message(paste0(
           "\rComputing selection with method: ", paste0(o$n.penExt, collapse = ", "), " (lasso penalized extensions)"), appendLF = TRUE)
+      }
       Res.penExt <- penExt(data = data, o = o)
       Step[, which(colStep %in% o$n.penExt)] <- Step[, 'lasso']
       names(Res.penExt) <- o$n.penExt
       res <- merge.list(res, Res.penExt)
     }
 
-    if(length(grep("alasso", method2)) > 0){
+    if(length(grep("alasso", oth.method)) > 0){
 
-      suf <- gsub("alasso", "", method2[grep("alasso", method2)])
+      suf <- gsub("alasso", "", oth.method[grep("alasso", oth.method)])
 
       Res.als <- lapply(suf, function(M, o){
 
-        if(trace == TRUE)
+        if(trace == TRUE){
           message(paste0(
             "\rComputing selection with method: alasso", M), appendLF = TRUE)
-        flush.console()
+        }
 
         Mres <- alasso(data = data, o = o, pr = M)
 
         return(Mres)
       }, o = o)
-
+      
+      res.als <- list()
       for(i in 1:length(Res.als)){
-        Step[, method2[grep("alasso", method2)][i]] <- as.numeric(unlist(Res.als[[i]][2]))
+        Step[, oth.method[grep("alasso", oth.method)][i]] <- as.numeric(unlist(Res.als[[i]][2]))
         res.als[i] <- Res.als[[i]][1]
       }
 
-      names(res.als) <- method2[grep("alasso", method2)]
+      names(res.als) <- oth.method[grep("alasso", oth.method)]
       res <- merge.list(res, res.als)
     }
   }
@@ -479,7 +432,7 @@ BMsel <- function(
   if(sum(names(res) == "ridge") == 1){
     ridge <- res[[which(names(res) %in% "ridge")]]
     res <- res[-which(names(res) %in% "ridge")]
-    Step <- Step[, -which(colnames(Step) %in% "ridge")]
+    Step <- Step[, -which(colnames(Step) %in% "ridge"), drop = FALSE]
   }
 
   class(res) <- 'resBMsel'
@@ -512,7 +465,6 @@ print.resBMsel <- function(x, ...) {
   print(x, ...)
 
 } # end of print
-
 ################################################################################
 
 summary.resBMsel <- function(object, show = TRUE, keep = c('tt', 'z', 'x', 'xt'), add.ridge = FALSE, ...) {
