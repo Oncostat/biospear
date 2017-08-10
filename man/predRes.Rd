@@ -7,7 +7,7 @@
   accuracy of a prediction model.
 }
 \usage{
-predRes(res, method, traindata, newdata, is.2cv, fold.2cv = 5, horizon,
+predRes(res, method, traindata, newdata, int.cv, int.cv.nfold = 5, time,
   trace = TRUE, ncores = 1)
 
 \method{plot}{predRes}(x, method, crit = c("C", "PE", "dC"),
@@ -20,11 +20,11 @@ predRes(res, method, traindata, newdata, is.2cv, fold.2cv = 5, horizon,
 \code{res} object. This object is mandatory.}
   \item{newdata}{input \code{\link{data.frame}} not used to compute the
 \code{res} object. This object is not mandatory (see Details section).}
-  \item{is.2cv}{logical parameter indicating if a double
+  \item{int.cv}{logical parameter indicating if a double
 cross-validation process (2CV) should be performed to mimick an external
 validation set.}
-  \item{fold.2cv}{number of folds for the double cross-validation. Considering a large value for \code{fold.2cv} should provide extremely large computation time. \code{fold.2cv} must not be considered when \code{is.2cv = FALSE}.}
-  \item{horizon}{time horizon to compute the prediction criteria.}
+  \item{int.cv.nfold}{number of folds for the double cross-validation. Considering a large value for \code{int.cv.nfold} should provide extremely large computation time. \code{int.cv.nfold} must not be considered when \code{int.cv = FALSE}.}
+  \item{time}{time points to compute the prediction criteria.}
   \item{trace}{logical parameter indicating if messages should be printed.}
   \item{ncores}{number of CPUs used (for the double cross-validation).}
   \item{x}{an object of class '\code{predRes}' generated from \code{\link{predRes}}.}
@@ -40,7 +40,7 @@ To evaluate the accuracy of the selected models, three predictive accuracy measu
 For simulated datasets, the predictive accuracy metrics are also computed for the "oracle model" that is the unpenalized Cox proportional hazards model fitted to the active biomarkers only.
 }
 \value{
-  A \code{list} of the same length of the \code{horizon} considered. Each element of the list contains between 1 and 3 sublists depending on the chosen validation (i.e. training set [always computed], internal validation through double cross-validation (2CV) [if \code{is.2cv} = \code{TRUE}] and/or external validation [if \code{newdata} is provided]). Each sublist is a \code{matrix} containing the predictive accuracy metrics of the implemented methods.
+  A \code{list} of the same length of the \code{time} considered. Each element of the list contains between 1 and 3 sublists depending on the chosen validation (i.e. training set [always computed], internal validation through double cross-validation (2CV) [if \code{int.cv} = \code{TRUE}] and/or external validation [if \code{newdata} is provided]). Each sublist is a \code{matrix} containing the predictive accuracy metrics of the implemented methods.
 }
 \author{Nils Ternes, Federico Rotolo, and Stefan Michiels\cr
 Maintainer: Nils Ternes \email{nils.ternes@yahoo.com}
@@ -93,7 +93,7 @@ Maintainer: Nils Ternes \email{nils.ternes@yahoo.com}
     res = resBM,
     traindata = sdata,
     newdata = newdata,
-    horizon = 1:5)
+    time = 1:5)
     
   plot(predAcc, crit = "C")
 
@@ -118,8 +118,8 @@ Maintainer: Nils Ternes \email{nils.ternes@yahoo.com}
   predAcc <- predRes(
     res = resBM,
     traindata = sdata, 
-    is.2cv = TRUE, 
-    horizon = 1:5, 
+    int.cv = TRUE, 
+    time = 1:5, 
     ncores = 5)
   plot(predAcc, crit = "dC")
 }
@@ -148,7 +148,7 @@ Maintainer: Nils Ternes \email{nils.ternes@yahoo.com}
   predAcc <- predRes(
     res = resBM,
     traindata = Breast,
-    horizon = 1:4,
+    time = 1:4,
     trace = TRUE)
   plot(predAcc, crit = "C")
 }
