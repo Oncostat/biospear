@@ -15,7 +15,7 @@ expSurv <- function(
   nboot,            # Number of bootstrap samples
   smooth = TRUE,    # Computation of smoothed B-splines? (logical: TRUE/FALSE)
   pct.group = 4,    # Number or percentile of the prognostic category (interaction setting only)
-  horizon,          # Time-horizon to estimate the expected survival probabilities
+  time,             # Time-horizon to estimate the expected survival probabilities
   trace = TRUE,     # Print messages ?
   ncores = 1        # Number of PC cores used (useful for the bootstrap CI only)
   #####################################################################
@@ -77,13 +77,13 @@ expSurv <- function(
     }
   }
 
-  if(missing(horizon)){
-    stop("\'horizon' must be specified for Cox models.")
+  if(missing(time)){
+    stop("\'time' must be specified for Cox models.")
   }else{
-    if(length(horizon) > 1)
-      stop("\n'horizon' must be an unique value.")
-    if(horizon < 0 || horizon > max(traindata[, attributes(res)$inames[which(attributes(res)$tnames == 'y')[1]]]))
-      stop("\n'horizon' is out of the range of the observed survival time.")
+    if(length(time) > 1)
+      stop("\n'time' must be an unique value.")
+    if(time < 0 || time > max(traindata[, attributes(res)$inames[which(attributes(res)$tnames == 'y')[1]]]))
+      stop("\n'time' is out of the range of the observed survival time.")
   }
 
   if(!is.logical(trace))
@@ -199,12 +199,12 @@ expSurv <- function(
     ") ~ 1"))
   sbhz <- survfit(fct, data = traindata, se.fit = TRUE, conf.int = ci.level)
   bhz <- c(
-    surv = sbhz$surv[max(which(sbhz$time < horizon))],
-    lower = sbhz$lower[max(which(sbhz$time < horizon))],
-    upper = sbhz$upper[max(which(sbhz$time < horizon))])
+    surv = sbhz$surv[max(which(sbhz$time < time))],
+    lower = sbhz$lower[max(which(sbhz$time < time))],
+    upper = sbhz$upper[max(which(sbhz$time < time))])
 
   surv <- int.expSurv(res = res, all.sel = all.sel, datafit = traindata, dataest = traindata,
-                           boot = boot, ci.level = ci.level, hrz = horizon, out.fit = TRUE)
+                           boot = boot, ci.level = ci.level, hrz = time, out.fit = TRUE)
   m <- matrix(0, nrow = nrow(traindata), ncol = ncol(all.sel))
   colnames(m) <- colnames(all.sel)
   train.surv <- list(surv = m, lower = m, upper = m)
@@ -232,9 +232,6 @@ expSurv <- function(
       x = 1:nboot,
       fun = function(X){
 
-        if(trace == TRUE)
-          message(paste0("\rBootstrap sample ", X, " / ", nboot))
-
         bootdata <- traindata[sample(1:nrow(traindata), size = nrow(traindata), replace = TRUE), ]
         form[2] <- list(bootdata)
         form[which(names(form) == "method")] <- list(setdiff(method, "oracle"))
@@ -255,11 +252,11 @@ expSurv <- function(
         all.sel <- all.sel[, method, drop = FALSE]
 
         surv <- int.expSurv(res = res, all.sel = all.sel, datafit = bootdata, dataest = traindata,
-                            boot = boot, ci.level = ci.level, hrz = horizon, out.fit = TRUE)
+                            boot = boot, ci.level = ci.level, hrz = time, out.fit = TRUE)
 
         for(i in 1:ncol(all.sel)){
           boot.bhz <- basehaz(surv[[i]][[2]], centered = T)
-          surv[[i]][[2]] <- c(surv.bhz = boot.bhz[max(which(boot.bhz[, "time"] < horizon)), "hazard"], coef(surv[[i]][[2]]))
+          surv[[i]][[2]] <- c(surv.bhz = boot.bhz[max(which(boot.bhz[, "time"] < time)), "hazard"], coef(surv[[i]][[2]]))
         }
 
         return(surv)
@@ -384,7 +381,7 @@ expSurv <- function(
       mat.boot = mat.boot,
       smooth = smooth,
       mat.smooth = mat.smooth,
-      hrz = horizon,
+      hrz = time,
       bhz = bhz
     ))
   if(smooth == TRUE)
@@ -611,7 +608,7 @@ plot.resexpSurv <- function(x, method, pr.group, print.ci = TRUE, xlim, ylim, xl
    lines(x = xx[wc], y = x$surv[wgr, method][wc], lwd = 2, col = 1)
    lines(x = xx[wt], y = x$surv[wgr, method][wt], lwd = 2, col = 2)
    if(!is.null(a$surv)){
-     lines(x = xx, y = a$surv[wgr, method], type = "p", col = col, pch = "+", cex = 1)
+     lines(x = xx, y = a$surv[wgr, method], type = "p", col = col, cex = 1, ...)
    }
    if(print.ci){
      lines(x = xx[wc], y = x$lower[wgr, method][wc], lwd = 2, lty = 5, col = 1)
@@ -682,11 +679,15 @@ int.expSurv <- function(res, all.sel, fit, datafit, dataest, boot, ci.level, hrz
         if(out.fit){
           fct <- as.formula(paste0("Surv(", paste(
             attributes(res)$inames[attributes(res)$tnames == "y"], collapse = ", "),
-            ") ~ as.matrix(datafit[, rownames(all.sel)[selected], drop = FALSE])"))
-
+            ") ~ ", paste0(paste0("tmp.", rownames(all.sel)[selected]), collapse = "+")))
+          wtmpfit <- -which(colnames(datafit) %in% attributes(res)$inames[attributes(res)$tnames == "y"])
+          colnames(datafit)[wtmpfit] <- paste0("tmp.", colnames(datafit)[wtmpfit])
+          wtmpest <- -which(colnames(dataest) %in% attributes(res)$inames[attributes(res)$tnames == "y"])
+          colnames(dataest)[wtmpest] <- paste0("tmp.", colnames(dataest)[wtmpest])
           fit <- coxph(fct, init = all.sel[selected, X], iter = 0, data = datafit)
         }
           surv <- survfit(fit, newdata = dataest, se.fit = !boot, conf.int = ci.level)
+          names(fit$coefficients) <- gsub("tmp.", "", names(fit$coefficients))
           whrz <- max(which(surv$time < hrz))
           if(boot == TRUE){
             surv <- list(surv = surv$surv[whrz, ])

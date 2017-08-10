@@ -89,6 +89,12 @@ BMsel <- function(
     colCheck(obj = x, data = data)
     if(is.numeric(x))
       x <- colnames(data)[x]
+    if(length(which(colSums(apply(data[, x, drop = FALSE], 2, range)) == 0) > 0)){
+      warning(paste0("Removed variables: ",
+                     paste0(x[which(colSums(apply(data[, x, drop = FALSE], 2, range)) == 0)], collapse = ", "),
+                     " (only one value available for all observations)"))
+      x <- x[-which(colSums(apply(data[, x, drop = FALSE], 2, range)) == 0)]
+    }
     arg[which(names(arg) == "x")] <- list(x)
 
     # Control of 'y'
@@ -104,6 +110,12 @@ BMsel <- function(
       colCheck(obj = z, data = data)
       if(is.numeric(z))
         z <- colnames(data)[z]
+      if(length(which(colSums(apply(data[, z, drop = FALSE], 2, range)) == 0) > 0)){
+        warning(paste0("Removed variables: ",
+                       paste0(z[which(colSums(apply(data[, z, drop = FALSE], 2, range)) == 0)], collapse = ", "),
+                       " (only one value available for all observations)"))
+        z <- z[-which(colSums(apply(data[, z, drop = FALSE], 2, range)) == 0)]
+      }
       arg[which(names(arg) == "z")] <- list(z)
     }else{
       z <- NULL

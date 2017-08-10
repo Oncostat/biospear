@@ -7,15 +7,15 @@
 predRes <- function(
   ####################################################################
   ######################## *** PARAMETERS *** ########################
-  res,             # Object of class 'resBMsel'
-  method,          # Methods to compute
-  traindata,       # Training dataset
-  newdata,         # New dataset
-  is.2cv,          # Double CV should be performed?
-  fold.2cv = 5,    # Number of folds for the double CV
-  horizon,         # Time-horizon
-  trace = TRUE,    # Print function's progression?
-  ncores = 1       # Number of PC cores used
+  res,              # Object of class 'resBMsel'
+  method,           # Methods to compute
+  traindata,        # Training dataset
+  newdata,          # New dataset
+  int.cv,           # Internal CV should be performed?
+  int.cv.nfold = 5, # Number of folds for the internal CV
+  time,             # Time points
+  trace = TRUE,     # Print function's progression?
+  ncores = 1        # Number of PC cores used
   ####################################################################
   ){
 
@@ -41,23 +41,23 @@ predRes <- function(
   if(length(setdiff(attributes(res)$inames[which(attributes(res)$tnames != 'xt')], colnames(traindata))) > 0)
     stop("\nSome covariates of the training set are missing. Please specify the same data set used for BMsel().")
 
-  if(missing(is.2cv))
-    is.2cv <- FALSE
+  if(missing(int.cv))
+    int.cv <- FALSE
 
-  if(!(is.2cv) %in% c(TRUE, FALSE))
-    stop("\n'is.2cv' must be either TRUE or FALSE.")
+  if(!(int.cv) %in% c(TRUE, FALSE))
+    stop("\n'int.cv' must be either TRUE or FALSE.")
 
-  if(fold.2cv < 2 || fold.2cv > nrow(traindata))
-    stop("\n'fold.2cv' must be between 2 and the sample size 'n'.")
+  if(int.cv.nfold < 2 || int.cv.nfold > nrow(traindata))
+    stop("\n'int.cv.nfold' must be between 2 and the sample size 'n'.")
 
-  if(missing(horizon)){
-    stop("\n'horizon' must be specified for Cox models.")
+  if(missing(time)){
+    stop("\n'time' must be specified for Cox models.")
   }else{
-    if(min(horizon) < 0 || max(horizon) > min(c(max(traindata[, attributes(res)$inames[which(attributes(res)$tnames == 'y')[1]]]),
+    if(min(time) < 0 || max(time) > min(c(max(traindata[, attributes(res)$inames[which(attributes(res)$tnames == 'y')[1]]]),
                                         if(!missing(newdata)) max(newdata[, attributes(res)$inames[which(attributes(res)$tnames == 'y')[1]]]))))
-      stop("\n'horizon' is out of the range of the observed survival time.")
+      stop("\n'time' is out of the range of the observed survival time.")
   }
-  horizon <- sort(horizon)
+  time <- sort(time)
 
   if(!missing(newdata)){
     if(length(setdiff(attributes(res)$inames[which(attributes(res)$tnames != 'xt')], colnames(newdata))) > 0)
@@ -69,7 +69,7 @@ predRes <- function(
   ncores <- round(ncores, 0)
   if(ncores < 1 || ncores > detectCores())
     stop(paste0("\n'ncores' must be between 1 and ", detectCores(), "."))
-  if(ncores > fold.2cv) ncores <- fold.2cv
+  if(ncores > int.cv.nfold) ncores <- int.cv.nfold
 
   tt <- attributes(res)$inames[which(attributes(res)$tnames == 'tt')]
   x <- attributes(res)$inames[which(attributes(res)$tnames == 'x')]
@@ -117,7 +117,7 @@ predRes <- function(
         tdata[, gsub(paste0(":", attributes(res)$inames[1]), "", rownames(Res.i))]) %*% as.matrix(Res.i)
   }
 
-  predRes.train <- compute.predRes(res = res, nmeth = nmeth, hrz = horizon, traindata = traindata, newdata = traindata,
+  predRes.train <- compute.predRes(res = res, nmeth = nmeth, hrz = time, traindata = traindata, newdata = traindata,
                                    surv.train = surv.train, surv.new = surv.train, lp.train = lp.train, lp.new = lp.train,
                                    lpint.train = lpint.train, lpint.new = lpint.train, tt = tt)
 
@@ -149,7 +149,7 @@ predRes <- function(
           newdata[, gsub(paste0(":", attributes(res)$inames[1]), "", rownames(Res.i))]) %*% as.matrix(Res.i)
     }
 
-    predRes.new <- compute.predRes(res = res, nmeth = nmeth, hrz = horizon, traindata = traindata, newdata = newdata,
+    predRes.new <- compute.predRes(res = res, nmeth = nmeth, hrz = time, traindata = traindata, newdata = newdata,
                                    surv.train = surv.train, surv.new = surv.new, lp.train = lp.train, lp.new = lp.new,
                                    lpint.train = lpint.train, lpint.new = lpint.new, tt = tt)
   }
@@ -158,19 +158,19 @@ predRes <- function(
   ####################################################################
   ### PREDICTION FOR INTERNAL DOUBLE CROSS-VALIDATION (2CV)
   
-  if(is.2cv == TRUE){
+  if(int.cv == TRUE){
     form <- attributes(res)$formula
-    foldid2 <- sample(x = 1:fold.2cv, size = nrow(traindata), replace = T)
+    foldid2 <- sample(x = 1:int.cv.nfold, size = nrow(traindata), replace = T)
 
     if(trace == TRUE)
       message(
-        "\rComputing prediction criteria for: internal 2CV")
+        "\rComputing prediction criteria for: internal validation")
 
     cl <- makeCluster(ncores)
 
-    res.2cv <- clusterApplyLB(
+    res.int.cv <- clusterApplyLB(
       cl = cl,
-      x = 1:fold.2cv,
+      x = 1:int.cv.nfold,
       fun = function(X){
 
         traindataT <- traindata[which(foldid2 != X), ]
@@ -232,21 +232,21 @@ predRes <- function(
 
     stopCluster(cl)
 
-    lp.2cv <- data.frame()
-    for(i in 1:fold.2cv)
-      lp.2cv <- rbind(lp.2cv, data.frame(res.2cv[[i]][1]))
-    lp.2cv <- lp.2cv[order(as.numeric(rownames(lp.2cv))), , drop = FALSE]
+    lp.int.cv <- data.frame()
+    for(i in 1:int.cv.nfold)
+      lp.int.cv <- rbind(lp.int.cv, data.frame(res.int.cv[[i]][1]))
+    lp.int.cv <- lp.int.cv[order(as.numeric(rownames(lp.int.cv))), , drop = FALSE]
 
     if(attributes(res)$inter == TRUE){
-      lpint.2cv <- data.frame()
-      for(i in 1:fold.2cv)
-        lpint.2cv <- rbind(lpint.2cv, data.frame(res.2cv[[i]][2]))
-      lpint.2cv <- lpint.2cv[order(as.numeric(rownames(lpint.2cv))), , drop = FALSE]
+      lpint.int.cv <- data.frame()
+      for(i in 1:int.cv.nfold)
+        lpint.int.cv <- rbind(lpint.int.cv, data.frame(res.int.cv[[i]][2]))
+      lpint.int.cv <- lpint.int.cv[order(as.numeric(rownames(lpint.int.cv))), , drop = FALSE]
     }
 
-    predRes.2cv <- compute.predRes(res = res, nmeth = nmeth, hrz = horizon, traindata = traindata, newdata = traindata,
-                                   surv.train = surv.train, surv.new = surv.train, lp.train = lp.train, lp.new = lp.2cv,
-                                   lpint.train = lpint.train, lpint.new = lpint.2cv, tt = tt)
+    predRes.int.cv <- compute.predRes(res = res, nmeth = nmeth, hrz = time, traindata = traindata, newdata = traindata,
+                                   surv.train = surv.train, surv.new = surv.train, lp.train = lp.train, lp.new = lp.int.cv,
+                                   lpint.train = lpint.train, lpint.new = lpint.int.cv, tt = tt)
 
   }
 
@@ -255,13 +255,13 @@ predRes <- function(
   ### FORMATTING RESULTS
   
   predRes <- list()
-  for(i in 1:length(horizon)){
+  for(i in 1:length(time)){
     predres <- list('Training set' = round(predRes.train[[i]], 4))
-    if(is.2cv == TRUE) predres <- merge.list(predres, list('Internal validation (2CV)' = round(predRes.2cv[[i]], 4)))
+    if(int.cv == TRUE) predres <- merge.list(predres, list('Internal validation' = round(predRes.int.cv[[i]], 4)))
     if(!missing(newdata)) predres <- merge.list(predres, list('External validation' = round(predRes.new[[i]], 4)))
     predRes[[i]] <- predres
   }
-  names(predRes) <- paste0("horizon = ", horizon)
+  names(predRes) <- paste0("time = ", time)
   class(predRes) <- "predRes"
   return(predRes)
 }
@@ -360,13 +360,13 @@ plot.predRes <- function(x, method, crit = c("C", "PE", "dC"), xlim, ylim, xlab,
       stop("'col' must be of length 1 or the number of methods 'method'.")
   }
 
-  hrz <- as.numeric(gsub("horizon = ", "", names(x)))
+  hrz <- as.numeric(gsub("time = ", "", names(x)))
 
   xx <- data.frame()
   for(i in 1:length(x)){
     for(j in 1:length(x[[i]])){
       pos <- (j-1) * length(method) + 1:length(method)
-      xx[pos, 1] <- switch(names(x[[i]][j]), 'Training set' = 3, 'Internal validation (2CV)' = 2, 'External validation' = 1)
+      xx[pos, 1] <- switch(names(x[[i]][j]), 'Training set' = 3, 'Internal validation' = 2, 'External validation' = 1)
       xx[pos, 2] <- method
       xx[pos, 2 + i] <- x[[i]][[j]][crit, method]
     }

@@ -68,6 +68,7 @@ gboost <- function(data, o){
   
   cv <- cvrisk(
     object = boost,
+    grid = 1:mstop(boost),
     folds = cv,
     papply = lapply)
   
