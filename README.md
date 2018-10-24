@@ -22,13 +22,13 @@ install_github("oncostat/biospear",type="source")
 
 
 ## References
-Ternès N, Rotolo F, Michiels S. biospear: an R package for biomarker selection in penalized Cox regression. Bioinformatics. 2018 Jan 1;34(1):112-113. 
+Ternès N, Rotolo F, Michiels S. biospear: an R package for biomarker selection in penalized Cox regression. *Bioinformatics* 2018 Jan 1;34(1):112-113. 
 DOI: [10.1093/bioinformatics/btx560](http://dx.doi.org/10.1093/bioinformatics/btx560).
 
 Ternes N, Rotolo F and Michiels S.
 Empirical extensions of the lasso penalty to reduce 
 the false discovery rate in high-dimensional Cox regression models.
-*\emph{*Statistics in Medicine* 2016;**35**(15):2561-2573.
+*Statistics in Medicine* 2016;**35**(15):2561-2573.
 DOI: [10.1002/sim.6927](http://dx.doi.org/10.1002/sim.6927)
 
 Ternes N, Rotolo F, Heinze G and Michiels S.
