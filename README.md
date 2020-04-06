@@ -15,6 +15,7 @@ We proposed biospear, a useful R tool for developing and validating prediction m
 #install.packages(c("dplyr", "glmnet", "corpcor", "survival","statnet.common","devtools"))
 
 install.packages("BiocManager")
+
 BiocManager::install(c("survcomp"))
 
 library(devtools)
