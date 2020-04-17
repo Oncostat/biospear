@@ -8,6 +8,7 @@ We proposed biospear, a useful R tool for developing and validating prediction m
 
 ## Install directly from github
 
+```r
 #Could be needed to install some of these packages first
 
 #install.packages(c("cobs", "grplasso", "mboost", "plsRcox", "pROC", "PRROC", "RCurl", "survAUC"))
@@ -21,7 +22,7 @@ BiocManager::install(c("survcomp"))
 library(devtools)
 
 install_github("oncostat/biospear",type="source")
-
+```
 
 ## References
 Ternès N, Rotolo F, Michiels S. biospear: an R package for biomarker selection in penalized Cox regression. *Bioinformatics* 2018 Jan 1;34(1):112-113.
